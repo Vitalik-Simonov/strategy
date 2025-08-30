@@ -11,9 +11,15 @@ class App:
         self.screen = pg.display.set_mode([WIDTH, HEIGHT], pg.FULLSCREEN)
         self.clock = pg.time.Clock()
         self.all_sprites = pg.sprite.Group()
+        self.UI_sprites = pg.sprite.Group()
+        self.my_units = pg.sprite.Group()
+        self.my_buildings = pg.sprite.Group()
+        self.enemy_units = pg.sprite.Group()
+        self.enemy_buildings = pg.sprite.Group()
 
     def draw(self):
         self.screen.fill(pg.Color((252, 219, 109)))
+        pg.draw.line(self.screen, (100, 100, 100), (WIDTH // 4, 0), (WIDTH // 4, HEIGHT))
         self.all_sprites.draw(self.screen)
 
     def check_events(self):
@@ -35,6 +41,12 @@ class App:
             self.update()
             self.draw()
             await asyncio.sleep(0)
+
+    def win(self):
+        print('win')
+
+    def lose(self):
+        print('lose')
 
 
 if __name__ == '__main__':
