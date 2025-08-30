@@ -10,7 +10,7 @@ class Bar(pg.sprite.Sprite):
         self.value = max_value
         self.color = color
         self.shift = shift
-        self.image = pg.surface.Surface((102, 22))
+        self.image = pg.surface.Surface((102, 12))
         self.image.fill('black')
         pg.draw.rect(self.image, self.color, (1, 1, 100, 10))
         self.rect = self.image.get_rect()
@@ -34,18 +34,17 @@ class SpriteHp(pg.sprite.Sprite):
         super(SpriteHp, self).__init__(*groups)
         self.app = app
         self.hp = hp
+        self.rect = pg.rect.Rect(0, 0, 0, 0)
         self.hp_bar = Bar(app, self, hp)
+        self.shield = shield
         if shield is not None:
-            self.shield = shield
             self.shield_bar = Bar(app, self, shield, 'blue', 55)
-        else:
-            self.shield = 0
 
     def get_damage(self, damage):
         if self.shield is None:
             self.hp -= damage
             self.hp_bar.update_value(self.hp)
-        if self.shield >= damage:
+        elif self.shield >= damage:
             self.shield -= damage
             self.shield_bar.update_value(self.shield)
         else:
@@ -70,9 +69,9 @@ class Unit(SpriteHp):
         self.enemy_units = enemy_units
         self.timer = 0
 
-    def get_target(self, distance=100):
+    def get_target(self):
         target = None
-        minimum = distance
+        minimum = math.inf
         for sprite in self.enemy_units:
             dist = math.dist((self.rect.centerx, self.rect.centery), (sprite.rect.centerx, sprite.rect.centery))
             if minimum >= dist:
@@ -88,11 +87,11 @@ class Unit(SpriteHp):
 
 
 class MyBase(SpriteHp):
-    def __init__(self, app, x=100, y=HEIGHT // 2):
+    def __init__(self, app, x=150, y=HEIGHT // 2):
         super(MyBase, self).__init__(app, 1000, None, app.all_sprites, app.my_units, app.my_buildings)
         self.app = app
-        self.image = pg.surface.Surface((100, 100))
-        self.image.fill('blue')
+        self.image = pg.surface.Surface((150, 150))
+        self.image.fill(MY_COLOR)
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
 
@@ -103,11 +102,11 @@ class MyBase(SpriteHp):
 
 
 class EnemyBase(SpriteHp):
-    def __init__(self, app, x=WIDTH - 100, y=HEIGHT // 2):
+    def __init__(self, app, x=WIDTH - 150, y=HEIGHT // 2):
         super(EnemyBase, self).__init__(app, 1000, None, app.all_sprites, app.enemy_units, app.enemy_buildings)
         self.app = app
-        self.image = pg.surface.Surface((100, 100))
-        self.image.fill('red')
+        self.image = pg.surface.Surface((150, 150))
+        self.image.fill(ENEMY_COLOR)
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
 
@@ -118,17 +117,26 @@ class EnemyBase(SpriteHp):
 
 
 class Knight(Unit):
-    def __init__(self, app, x, y, enemy_units, my_group):
-        super().__init__(app, 100, None, enemy_units, my_group)
-        self.enemy_units = enemy_units
+    def __init__(self, app, x, y, side=0):
+        if side == 0:
+            self.color = MY_COLOR
+            self.enemy_units = app.enemy_units
+            self.my_group = app.my_units
+        elif side == 1:
+            self.color = ENEMY_COLOR
+            self.enemy_units = app.my_units
+            self.my_group = app.enemy_units
+        super().__init__(app, 100, None, self.enemy_units, self.my_group)
         self.image = pg.surface.Surface((50, 50))
+        self.image.fill(self.color)
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.x = x
         self.y = y
-        self.distance = 500
+        self.attack_distance = 100
         self.speed = 100
         self.shoot_speed = 1
+        self.damage = 10
 
     def update(self):
         target = self.get_target()
@@ -136,12 +144,11 @@ class Knight(Unit):
         angle = math.acos((self.y - target_y) / (math.sqrt((self.y - target_y) ** 2 + (self.x - target_x) ** 2)))
         if target_x < self.x:
             angle = -angle
-        if math.sqrt((self.y - target_y) ** 2 + (self.x - target_x) ** 2) >= self.distance:
-            speed = self.speed
+        target_distance = math.sqrt((self.y - target_y) ** 2 + (self.x - target_x) ** 2)
+        if self.attack_distance <= target_distance:
+            self.x += math.sin(angle) * self.speed / self.app.fps
+            self.y -= math.cos(angle) * self.speed / self.app.fps
+            self.rect.x = self.x
+            self.rect.y = self.y
         else:
-            speed = 0
-        self.x += math.sin(angle) * speed / self.app.clock.get_fps()
-        self.y -= math.cos(angle) * speed / self.app.clock.get_fps()
-        self.rect.x = self.x
-        self.rect.y = self.y
-
+            self.attack(target, self.damage)
